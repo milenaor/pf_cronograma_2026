@@ -126,7 +126,7 @@ table.sub-tbl { width:100%; border-collapse:collapse; font-size:11.5px; }
 </div>
 <div id="tl-legend" class="legend">
   <div class="leg"><div class="leg-dot" style="background:#22c55e"></div>Pub. proceso</div>
-  <div class="leg"><div class="leg-dot" style="background:#3b82f6"></div>Visitas</div>
+  <div class="leg"><div class="leg-dot" style="background:#ff6a00"></div>Visitas</div>
   <div class="leg"><div class="leg-dot" style="background:#ef4444"></div>Cierre</div>
   <div class="leg"><div class="leg-dot" style="background:#f59e0b"></div>Eval. Preliminar</div>
   <div class="leg"><div class="leg-dot" style="background:#7c3aed"></div>Eval. Final / Definitiva</div>
@@ -180,7 +180,7 @@ function ec(l){
   if(u.includes('EVALUACIÓN')) return '#f59e0b';
   if(u.includes('PLIEGOS')) return '#10b981';
   if(u.includes('PUBLICACIÓN PROCESO')) return '#22c55e';
-  if(u.includes('VISITAS')) return '#3b82f6';
+  if(u.includes('VISITAS')) return '#ff6a00';
   return '#94a3b8';
 }
 
@@ -299,8 +299,10 @@ function renderTimeline(){
         const seg=document.createElement('div'); seg.className='ev-seg';
         seg.style.left=((ei-fi)*DW)+'px';
         seg.style.width=DW+'px';
+        const isVisita=ev.l.toUpperCase().includes('VISITAS');
         seg.style.background=ec(ev.l);
-        seg.style.opacity='0.4';
+        seg.style.opacity=isVisita?'0.9':'0.4';
+        if(isVisita){seg.style.zIndex='5';}
         bar.appendChild(seg);
       });
 
@@ -393,7 +395,7 @@ function renderDashboard(){
 
   // Event types
   const typeC={};
-  const typeCol={'Publicación proceso':'#22c55e','Cierre':'#ef4444','Visitas':'#3b82f6','Eval. Preliminar':'#f59e0b','Eval. Final / Definitiva':'#7c3aed','Pub. Pliegos':'#10b981'};
+  const typeCol={'Publicación proceso':'#22c55e','Cierre':'#ef4444','Visitas':'#ff6a00','Eval. Preliminar':'#f59e0b','Eval. Final / Definitiva':'#7c3aed','Pub. Pliegos':'#10b981'};
   allEvs.forEach(e=>{
     const u=e.l.toUpperCase();
     let t;
