@@ -290,9 +290,9 @@ function renderTimeline(){
       const bar=document.createElement('div'); bar.className='pbar';
       bar.style.left=(fi*DW)+'px';
       bar.style.width=((li-fi+1)*DW)+'px';
-      bar.style.background=p.col+'bb';
+      bar.style.background='rgba(0,0,0,0.04)';
       bar.style.border=`1.5px solid ${p.col}`;
-      bar.style.boxShadow=`inset 0 1px 0 rgba(255,255,255,.25)`;
+      bar.style.boxShadow='none';
 
       p.events.forEach(ev=>{
         const ei=idx[ev.d]; if(ei===undefined) return;
