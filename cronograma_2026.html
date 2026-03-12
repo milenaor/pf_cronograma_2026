@@ -29,7 +29,7 @@ header p { font-size:11.5px; color:var(--muted); }
 .legend { padding:8px 36px; display:flex; gap:5px 16px; flex-wrap:wrap; background:var(--paper); border-bottom:1px solid #e0e0e0; }
 .leg { display:flex; align-items:center; gap:5px; font-size:10.5px; color:#555; }
 .leg-dot { width:11px; height:11px; border-radius:2px; flex-shrink:0; }
-.outer { overflow-x:auto; overflow-y:auto; background:var(--paper); padding:0 36px 12px; scrollbar-width:thin; scrollbar-color:#ccc transparent; flex:1; min-height:0; }
+.outer { overflow:hidden; background:var(--paper); padding:0 36px 8px; flex:1; min-height:0; }
 .outer::-webkit-scrollbar { height:5px; }
 .outer::-webkit-scrollbar-thumb { background:#ccc; border-radius:3px; }
 .canvas { position:relative; padding-top:16px; min-width:max-content; }
@@ -185,7 +185,7 @@ function ec(l){
 }
 
 const START=new Date('2026-02-17'), END=new Date('2026-11-30'), TODAY=new Date('2026-03-12');
-const DW=28;
+let DW=28;
 function addD(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
 function ds(d){return d.toISOString().slice(0,10);}
 
@@ -200,7 +200,7 @@ days.forEach((d,i)=>{
   if(!cm||cm.m!==m){cm={m,start:i,count:0,name:d.toLocaleString('es-CO',{month:'long'})};months.push(cm);}
   cm.count++;
 });
-const totalW=days.length*DW;
+let totalW=days.length*DW;
 
 // Tooltip
 const tip=document.getElementById('tip');
@@ -531,30 +531,35 @@ function renderDashboard(){
   `;
 }
 
-// Dynamic row height to fit viewport
+// Dynamic layout to fit viewport (no scroll)
 function updateRowHeight(){
   const hdr=document.querySelector('header').offsetHeight;
   const flt=document.getElementById('tl-filters').offsetHeight;
   const leg=document.getElementById('tl-legend').offsetHeight;
   const hnt=document.getElementById('tl-hint').offsetHeight;
-  const available=window.innerHeight - hdr - flt - leg - hnt - 6;
 
-  // Fixed canvas overhead: padding-top + ruler + ticks + axis-end
-  const canvasFixed=16+26+24+15;
-
+  // --- Vertical: compute row height ---
+  const availH=window.innerHeight - hdr - flt - leg - hnt - 8;
+  // canvas overhead: padding-top(16) + ruler(26) + ticks(24) + axis(9)
+  const canvasFixed=75;
   const filtered=activeF==='all'?DATA:DATA.filter(p=>p.sub===activeF);
   const nGroups=[...new Set(filtered.map(p=>p.sub))].length;
   const nRows=filtered.filter(p=>p.events.length>0).length;
   if(!nRows) return;
+  // sec-header: height(22) + margin top(5) + margin bottom(2) = 29px
+  const secHTotal=nGroups*29;
+  const tracksAvail=availH - canvasFixed - secHTotal;
+  const rowH=Math.max(20, Math.floor(tracksAvail/nRows));
+  const barH=Math.max(12, rowH-10);
 
-  // sec-header: height(22) + margin(7) each
-  const secHTotal=nGroups*(22+7);
-  const tracksAvail=available - canvasFixed - secHTotal;
-  const rowH=Math.max(24, Math.floor(tracksAvail/nRows));
-  const barH=Math.max(14, rowH-12);
+  // --- Horizontal: compute day width ---
+  const outerW=window.innerWidth - 72; // 36px padding × 2
+  DW=Math.max(3, Math.floor(outerW/days.length));
+  totalW=days.length*DW;
 
   document.documentElement.style.setProperty('--row-h', rowH+'px');
   document.documentElement.style.setProperty('--bar-h', barH+'px');
+  document.documentElement.style.setProperty('--day-w', DW+'px');
 }
 
 // Init
