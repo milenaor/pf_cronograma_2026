@@ -98,6 +98,13 @@ header p { font-size:11.5px; color:var(--muted); }
 .type-bar-fill { height:100%; border-radius:5px; }
 .type-num { font-size:11px; font-family:'Space Mono',monospace; width:26px; text-align:right; color:var(--muted); }
 table.sub-tbl { width:100%; border-collapse:collapse; font-size:11.5px; }
+.overlap-card { background:var(--paper); border-radius:10px; padding:20px 22px; border:1px solid #e4e4e4; margin-bottom:16px; }
+.overlap-card h3 { font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:14px; }
+.overlap-tbl { width:100%; border-collapse:collapse; font-size:11px; }
+.overlap-tbl th { font-size:9.5px; font-family:'Space Mono',monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:0 8px 8px 0; border-bottom:1px solid #eee; text-align:left; }
+.overlap-tbl td { padding:7px 8px 7px 0; border-bottom:1px dashed #f2f2f2; vertical-align:middle; }
+.proc-chip { display:inline-block; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:600; margin:2px 3px 2px 0; white-space:nowrap; }
+.ov-badge { display:inline-block; width:22px; height:22px; border-radius:50%; font-size:10px; font-weight:700; text-align:center; line-height:22px; }
 .sub-tbl th { font-size:9.5px; font-family:'Space Mono',monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:0 0 8px; border-bottom:1px solid #eee; text-align:left; }
 .sub-tbl th:not(:first-child) { text-align:center; }
 .sub-tbl td { padding:8px 0; border-bottom:1px dashed #f2f2f2; vertical-align:middle; }
@@ -431,6 +438,32 @@ function renderDashboard(){
   const topEv=activeMonths.sort((a,b)=>(evByM[b]||0)-(evByM[a]||0))[0];
   const sortedMonths=[2,3,4,5,6,7,8,9,10];
 
+  // Visit overlaps: find dates where 2+ processes have visits
+  const visitsByDate={};
+  activeProcs.forEach(p=>{
+    p.events.filter(e=>e.l.toUpperCase().includes('VISITAS')).forEach(e=>{
+      if(!visitsByDate[e.d]) visitsByDate[e.d]=[];
+      visitsByDate[e.d].push({name:p.name,sub:p.sub,col:p.col});
+    });
+  });
+  const overlapDates=Object.entries(visitsByDate)
+    .filter(([d,procs])=>procs.length>=2)
+    .sort((a,b)=>a[0].localeCompare(b[0]));
+
+  // Group into periods (gap ≤ 1 day)
+  const periods=[];
+  let per=null;
+  overlapDates.forEach(([d,procs])=>{
+    if(!per){per={days:[{d,procs}]};return;}
+    const diff=(new Date(d)-new Date(per.days[per.days.length-1].d))/86400000;
+    if(diff<=1) per.days.push({d,procs});
+    else{periods.push(per);per={days:[{d,procs}]};}
+  });
+  if(per) periods.push(per);
+
+  const fmtD=d=>new Date(d).toLocaleDateString('es-CO',{weekday:'short',day:'numeric',month:'short'});
+  const maxOver=overlapDates.length>0?Math.max(...overlapDates.map(([,p])=>p.length)):0;
+
   dash.innerHTML=`
     <h2>Resumen del Cronograma 2026</h2>
 
@@ -529,6 +562,37 @@ function renderDashboard(){
           </tbody>
         </table>
       </div>
+    </div>
+
+    <div class="overlap-card">
+      <h3>Coincidencias de visitas — días con 2 o más procesos simultáneos</h3>
+      ${overlapDates.length===0
+        ? `<p style="font-size:12px;color:var(--muted)">No hay días con visitas simultáneas.</p>`
+        : `<table class="overlap-tbl">
+            <thead><tr>
+              <th>Fecha</th>
+              <th style="text-align:center">Procesos</th>
+              <th>Subdirecciones involucradas</th>
+            </tr></thead>
+            <tbody>
+              ${overlapDates.map(([d,procs])=>{
+                const n=procs.length;
+                const bg=n>=4?'#fee2e2':n===3?'#ffedd5':'#fef9c3';
+                const tc=n>=4?'#b91c1c':n===3?'#c2410c':'#854d0e';
+                return `<tr style="background:${bg}22">
+                  <td style="font-family:'Space Mono',monospace;font-size:10.5px;white-space:nowrap">${fmtD(d)}</td>
+                  <td style="text-align:center"><span class="ov-badge" style="background:${bg};color:${tc}">${n}</span></td>
+                  <td>${procs.map(p=>`<span class="proc-chip" style="background:${p.col}22;color:${p.col};border:1px solid ${p.col}55">${p.name}</span>`).join('')}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          <div style="margin-top:12px;font-size:11px;color:var(--muted)">
+            Total: <strong style="color:var(--ink)">${overlapDates.length} días</strong> con visitas simultáneas en
+            <strong style="color:var(--ink)">${periods.length} período${periods.length!==1?'s':''}</strong> ·
+            Máximo simultáneo: <strong style="color:#c2410c">${maxOver} procesos</strong>
+          </div>`
+      }
     </div>
   `;
 }
