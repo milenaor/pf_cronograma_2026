@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cronograma de Procesos 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --bg:#f5f4ef; --paper:#fff; --ink:#1a1a2e; --muted:#888; --day-w:28px; --row-h:52px; }
+body { background:var(--bg); font-family:'DM Sans',sans-serif; color:var(--ink); min-height:100vh; }
+
+/* HEADER */
+header { padding:18px 36px 14px; display:flex; align-items:center; gap:18px; border-bottom:2.5px solid var(--ink); background:var(--paper); }
+header h1 { font-family:'Space Mono',monospace; font-size:14px; font-weight:700; letter-spacing:.07em; text-transform:uppercase; }
+header p { font-size:11.5px; color:var(--muted); }
+.view-toggle { margin-left:auto; display:flex; gap:8px; }
+.vtbtn { padding:7px 18px; border-radius:7px; border:1.5px solid #ccc; background:transparent; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; color:#555; }
+.vtbtn.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+.vtbtn:hover:not(.active) { border-color:var(--ink); color:var(--ink); }
+
+/* TIMELINE UI */
+.filters { padding:10px 36px; display:flex; gap:7px; flex-wrap:wrap; align-items:center; background:var(--paper); border-bottom:1px solid #e0e0e0; }
+.filter-label { font-size:11px; color:var(--muted); }
+.filter-btn { padding:3px 12px; border-radius:20px; border:1.5px solid #ddd; background:transparent; font-family:'DM Sans',sans-serif; font-size:11px; font-weight:500; cursor:pointer; transition:all .15s; color:#555; }
+.filter-btn:hover { border-color:var(--ink); color:var(--ink); }
+.filter-btn.active { background:var(--ink); color:#fff; border-color:var(--ink); }
+.legend { padding:8px 36px; display:flex; gap:5px 16px; flex-wrap:wrap; background:var(--paper); border-bottom:1px solid #e0e0e0; }
+.leg { display:flex; align-items:center; gap:5px; font-size:10.5px; color:#555; }
+.leg-dot { width:11px; height:11px; border-radius:2px; flex-shrink:0; }
+.outer { overflow-x:auto; overflow-y:visible; background:var(--paper); padding:0 36px 40px; scrollbar-width:thin; scrollbar-color:#ccc transparent; }
+.outer::-webkit-scrollbar { height:5px; }
+.outer::-webkit-scrollbar-thumb { background:#ccc; border-radius:3px; }
+.canvas { position:relative; padding-top:16px; min-width:max-content; }
+.months-ruler { display:flex; height:26px; align-items:flex-end; padding-bottom:3px; border-bottom:2px solid var(--ink); }
+.month-label { flex-shrink:0; font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--ink); padding:0 6px; border-left:2px solid var(--ink); height:100%; display:flex; align-items:flex-end; padding-bottom:3px; }
+.day-ticks { display:flex; height:22px; margin-bottom:2px; }
+.tick { width:var(--day-w); flex-shrink:0; position:relative; display:flex; flex-direction:column; align-items:center; }
+.tick-line { width:1px; background:#ccc; flex-shrink:0; }
+.tick.is-1 .tick-line { background:var(--ink); height:13px !important; }
+.tick.is-8 .tick-line,.tick.is-15 .tick-line,.tick.is-22 .tick-line,.tick.is-29 .tick-line { height:9px !important; background:#aaa; }
+.tick.weekend .tick-line { background:#ddd; }
+.tick-num { font-size:8px; font-family:'Space Mono',monospace; color:#aaa; position:absolute; top:13px; left:50%; transform:translateX(-50%); display:none; }
+.tick.is-1 .tick-num,.tick.is-8 .tick-num,.tick.is-15 .tick-num,.tick.is-22 .tick-num,.tick.is-29 .tick-num { display:block; }
+.tracks { position:relative; }
+.sec-header { height:28px; display:flex; align-items:center; padding-left:10px; border-left:4px solid; margin:10px 0 3px; }
+.sec-header span { font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.track { position:relative; height:var(--row-h); }
+.track:not(:last-of-type) { border-bottom:1px dashed #ebebeb; }
+.pbar { position:absolute; height:30px; top:50%; transform:translateY(-50%); border-radius:5px; display:flex; align-items:center; padding:0 10px; cursor:pointer; transition:filter .15s,box-shadow .15s; overflow:visible; }
+.pbar:hover { filter:brightness(1.1); box-shadow:0 3px 12px rgba(0,0,0,.18); z-index:10; }
+.pbar-label { font-size:9.5px; font-weight:600; color:rgba(0,0,0,.7); white-space:nowrap; pointer-events:none; position:relative; z-index:2; }
+.ev-seg { position:absolute; top:0; bottom:0; min-width:var(--day-w); pointer-events:none; }
+.today-pin { position:absolute; top:-14px; bottom:0; width:2px; background:#e63946; z-index:30; pointer-events:none; }
+.today-pin::before { content:'HOY'; position:absolute; top:0; left:50%; transform:translateX(-50%); font-size:8px; font-family:'Space Mono',monospace; color:#e63946; font-weight:700; white-space:nowrap; }
+.today-pin::after { content:''; position:absolute; top:16px; left:50%; transform:translateX(-50%); border-left:4px solid transparent; border-right:4px solid transparent; border-top:5px solid #e63946; }
+.axis-end { position:relative; height:3px; background:var(--ink); margin-top:6px; }
+.axis-end::after { content:''; position:absolute; right:-11px; top:-5px; width:0; height:0; border-top:6px solid transparent; border-bottom:6px solid transparent; border-left:13px solid var(--ink); }
+.hint { padding:9px 36px; font-size:11px; color:var(--muted); border-top:1px solid #e8e8e8; background:var(--paper); }
+#tip { position:fixed; display:none; background:#111827; color:#f9fafb; border-radius:10px; padding:14px 18px; font-size:12px; max-width:310px; z-index:9999; pointer-events:none; box-shadow:0 16px 40px rgba(0,0,0,.3); line-height:1.6; }
+#tip .tp { font-size:13.5px; font-weight:600; margin-bottom:3px; }
+#tip .ts { font-size:10px; opacity:.55; text-transform:uppercase; letter-spacing:.07em; margin-bottom:8px; }
+#tip .tbadge { display:inline-block; padding:2px 9px; border-radius:10px; font-size:10px; font-weight:700; margin-bottom:9px; }
+#tip .td { height:1px; background:rgba(255,255,255,.12); margin:7px 0; }
+#tip .tr { display:flex; justify-content:space-between; gap:12px; font-size:11px; }
+#tip .tk { opacity:.55; }
+
+/* DASHBOARD */
+#dashboard { display:none; padding:28px 36px 48px; background:var(--bg); animation:fadeIn .2s ease; }
+@keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+#dashboard h2 { font-family:'Space Mono',monospace; font-size:12px; font-weight:700; letter-spacing:.09em; text-transform:uppercase; margin-bottom:20px; padding-bottom:8px; border-bottom:2px solid var(--ink); }
+.kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:12px; margin-bottom:20px; }
+.kpi { background:var(--paper); border-radius:10px; padding:18px 20px; border:1px solid #e4e4e4; }
+.kpi-val { font-family:'Space Mono',monospace; font-size:30px; font-weight:700; line-height:1; }
+.kpi-lbl { font-size:11.5px; margin-top:5px; color:#333; }
+.kpi-sub { font-size:10px; color:var(--muted); margin-top:2px; }
+.peak-box { background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:14px 18px; margin-bottom:20px; font-size:12.5px; line-height:1.7; display:flex; gap:12px; }
+.peak-icon { font-size:22px; flex-shrink:0; }
+.two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+@media(max-width:800px){.two-col{grid-template-columns:1fr;}}
+.card { background:var(--paper); border-radius:10px; padding:20px 22px; border:1px solid #e4e4e4; }
+.card h3 { font-family:'Space Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:16px; }
+.bar-row { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+.bar-key { font-size:11px; width:90px; flex-shrink:0; font-family:'Space Mono',monospace; text-transform:uppercase; }
+.bar-bg { flex:1; height:11px; background:#f0f0f0; border-radius:6px; overflow:hidden; }
+.bar-fill { height:100%; border-radius:6px; transition:width .5s; }
+.bar-num { font-size:11px; font-family:'Space Mono',monospace; width:28px; text-align:right; flex-shrink:0; color:var(--muted); }
+.month-bars { display:flex; align-items:flex-end; gap:8px; height:110px; }
+.mb-wrap { display:flex; flex-direction:column; align-items:center; gap:3px; }
+.mb-bar { width:44px; border-radius:4px 4px 0 0; min-height:4px; }
+.mb-name { font-size:9px; font-family:'Space Mono',monospace; color:var(--muted); text-transform:uppercase; }
+.mb-cnt { font-size:10px; font-weight:700; color:var(--ink); }
+.type-row { display:flex; align-items:center; gap:9px; margin-bottom:8px; }
+.type-dot { width:10px; height:10px; border-radius:2px; flex-shrink:0; }
+.type-lbl { font-size:11.5px; flex:1; }
+.type-bar-bg { width:100px; height:10px; background:#f0f0f0; border-radius:5px; overflow:hidden; flex-shrink:0; }
+.type-bar-fill { height:100%; border-radius:5px; }
+.type-num { font-size:11px; font-family:'Space Mono',monospace; width:26px; text-align:right; color:var(--muted); }
+table.sub-tbl { width:100%; border-collapse:collapse; font-size:11.5px; }
+.sub-tbl th { font-size:9.5px; font-family:'Space Mono',monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:0 0 8px; border-bottom:1px solid #eee; text-align:left; }
+.sub-tbl th:not(:first-child) { text-align:center; }
+.sub-tbl td { padding:8px 0; border-bottom:1px dashed #f2f2f2; vertical-align:middle; }
+.sub-tbl td:not(:first-child) { text-align:center; font-family:'Space Mono',monospace; }
+.sdot { display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+.int-bar { display:inline-block; height:7px; border-radius:3px; vertical-align:middle; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Cronograma de Procesos — 2026</h1>
+    <p style="margin-top:3px">Dirección Poblacional · Planeación de contratación</p>
+  </div>
+  <div class="view-toggle">
+    <button class="vtbtn active" id="btn-tl" onclick="switchView('tl')">📅 Línea de tiempo</button>
+    <button class="vtbtn" id="btn-dash" onclick="switchView('dash')">📊 Resumen</button>
+  </div>
+</header>
+
+<!-- TIMELINE ELEMENTS -->
+<div id="tl-filters" class="filters">
+  <span class="filter-label">Subdirección:</span>
+  <button class="filter-btn active" data-filter="all">Todos</button>
+</div>
+<div id="tl-legend" class="legend">
+  <div class="leg"><div class="leg-dot" style="background:#22c55e"></div>Pub. proceso</div>
+  <div class="leg"><div class="leg-dot" style="background:#3b82f6"></div>Visitas</div>
+  <div class="leg"><div class="leg-dot" style="background:#ef4444"></div>Cierre</div>
+  <div class="leg"><div class="leg-dot" style="background:#f59e0b"></div>Eval. Preliminar</div>
+  <div class="leg"><div class="leg-dot" style="background:#7c3aed"></div>Eval. Final / Definitiva</div>
+  <div class="leg"><div class="leg-dot" style="background:#10b981"></div>Pub. Pliegos</div>
+  <div class="leg"><div class="leg-dot" style="background:#e63946;border-radius:50%"></div>Hoy</div>
+</div>
+<div id="tl-outer" class="outer"><div class="canvas" id="cv"></div></div>
+<div id="tl-hint" class="hint">← → Desplaza horizontalmente · Pasa el cursor sobre cada barra para ver los detalles</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard"></div>
+
+<div id="tip"></div>
+
+<script>
+const DATA = [
+  {sub:"SUBDIRECCIÓN VEJEZ",name:"CUIDADO TRANSITORIO",col:"#5ba4cf",events:[{d:"2026-03-10",l:"PUBLICACIÓN PROCESO"},{d:"2026-03-25",l:"CIERRE"},{d:"2026-03-26",l:"VISITAS"},{d:"2026-03-27",l:"VISITAS"},{d:"2026-03-30",l:"VISITAS"},{d:"2026-03-31",l:"VISITAS"},{d:"2026-04-01",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-04-10",l:"VISITAS"},{d:"2026-04-13",l:"VISITAS"},{d:"2026-04-14",l:"VISITAS"},{d:"2026-04-15",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"}]},
+  {sub:"SUBDIRECCIÓN VEJEZ",name:"CUIDADO MODERADOS — 800 CUPOS",col:"#2778a4",events:[{d:"2026-04-16",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-27",l:"CIERRE"},{d:"2026-04-28",l:"VISITAS"},{d:"2026-04-29",l:"VISITAS"},{d:"2026-04-30",l:"VISITAS"},{d:"2026-05-04",l:"VISITAS"},{d:"2026-05-05",l:"VISITAS"},{d:"2026-05-06",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-05-13",l:"VISITAS"},{d:"2026-05-14",l:"VISITAS"},{d:"2026-05-15",l:"VISITAS"},{d:"2026-05-19",l:"VISITAS"},{d:"2026-05-20",l:"PUBLICACIÓN EVALUACIÓN DEFINITIVA"}]},
+  {sub:"SUBDIRECCIÓN VEJEZ",name:"CUIDADO SEVEROS — 900 CUPOS",col:"#1a5276",events:[{d:"2026-05-22",l:"PUBLICACIÓN PROCESO"},{d:"2026-06-05",l:"CIERRE"},{d:"2026-06-09",l:"VISITAS"},{d:"2026-06-10",l:"VISITAS"},{d:"2026-06-11",l:"VISITAS"},{d:"2026-06-12",l:"VISITAS"},{d:"2026-06-16",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-06-22",l:"VISITAS"},{d:"2026-06-23",l:"VISITAS"},{d:"2026-06-24",l:"VISITAS"},{d:"2026-06-25",l:"VISITAS"},{d:"2026-06-26",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN VEJEZ",name:"HABITACIONAL",col:"#148f77",events:[{d:"2026-05-12",l:"PUBLICACIÓN PROYECTO DE PLIEGOS"},{d:"2026-05-13",l:"PUBLICACIÓN PROYECTO DE PLIEGOS"},{d:"2026-05-14",l:"PUBLICACIÓN PROYECTO DE PLIEGOS"},{d:"2026-06-01",l:"CIERRE"},{d:"2026-06-02",l:"VISITAS"},{d:"2026-06-03",l:"VISITAS"},{d:"2026-06-04",l:"VISITAS"},{d:"2026-06-05",l:"VISITAS"},{d:"2026-06-09",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-06-12",l:"VISITAS"},{d:"2026-06-16",l:"VISITAS"},{d:"2026-06-17",l:"VISITAS"},{d:"2026-06-18",l:"VISITAS"},{d:"2026-06-23",l:"PUBLICACIÓN EVALUACIÓN DEFINITIVA"}]},
+  {sub:"SUBDIRECCIÓN VEJEZ",name:"SOCIO SANITARIO",col:"#0d6e6e",events:[{d:"2026-08-28",l:"CIERRE"},{d:"2026-08-31",l:"VISITAS"},{d:"2026-09-01",l:"VISITAS"},{d:"2026-09-02",l:"VISITAS"},{d:"2026-09-03",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-09-09",l:"VISITAS"},{d:"2026-09-10",l:"VISITAS"},{d:"2026-09-11",l:"VISITAS"},{d:"2026-09-14",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN INFANCIA",name:"COFIS SDIS",col:"#c0392b",events:[{d:"2026-03-30",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-15",l:"CIERRE"},{d:"2026-04-16",l:"VISITAS"},{d:"2026-04-17",l:"VISITAS"},{d:"2026-04-20",l:"VISITAS"},{d:"2026-04-21",l:"VISITAS"},{d:"2026-04-22",l:"VISITAS"},{d:"2026-04-28",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-05-07",l:"VISITAS"},{d:"2026-05-08",l:"VISITAS"},{d:"2026-05-11",l:"VISITAS"},{d:"2026-05-12",l:"VISITAS"},{d:"2026-05-19",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN INFANCIA",name:"SED — DESIERTOS",col:"#e67e22",events:[{d:"2026-04-08",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-16",l:"CIERRE"},{d:"2026-04-17",l:"VISITAS"},{d:"2026-04-20",l:"VISITAS"},{d:"2026-04-21",l:"VISITAS"},{d:"2026-04-22",l:"VISITAS"},{d:"2026-04-23",l:"VISITAS"},{d:"2026-04-24",l:"VISITAS"},{d:"2026-04-30",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-05-07",l:"VISITAS"},{d:"2026-05-08",l:"VISITAS"},{d:"2026-05-11",l:"VISITAS"},{d:"2026-05-12",l:"VISITAS"},{d:"2026-05-21",l:"PUBLICACIÓN EVALUACIÓN FINAL"},{d:"2026-05-26",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN INFANCIA",name:"CENTRO AMAR",col:"#d4ac0d",events:[{d:"2026-04-27",l:"PUBLICACIÓN PROCESO"},{d:"2026-05-11",l:"CIERRE"},{d:"2026-05-12",l:"VISITAS"},{d:"2026-05-13",l:"VISITAS"},{d:"2026-05-14",l:"VISITAS"},{d:"2026-05-20",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-05-27",l:"VISITAS"},{d:"2026-05-28",l:"VISITAS"},{d:"2026-05-29",l:"VISITAS"},{d:"2026-06-03",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN INFANCIA",name:"CENTRO ABRAZAR",col:"#cb4335",events:[{d:"2026-05-04",l:"PUBLICACIÓN PROCESO"},{d:"2026-05-19",l:"CIERRE"},{d:"2026-05-20",l:"VISITAS"},{d:"2026-05-21",l:"VISITAS"},{d:"2026-05-22",l:"VISITAS"},{d:"2026-05-27",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-06-03",l:"VISITAS"},{d:"2026-06-04",l:"VISITAS"},{d:"2026-06-05",l:"VISITAS"},{d:"2026-06-11",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN ADULTEZ",name:"CENTRO DE ACOGIDA — 5 LOTES",col:"#27ae60",events:[{d:"2026-04-22",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-23",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-24",l:"PUBLICACIÓN PROCESO"},{d:"2026-05-13",l:"CIERRE"},{d:"2026-05-19",l:"VISITAS"},{d:"2026-05-20",l:"VISITAS"},{d:"2026-05-21",l:"VISITAS"},{d:"2026-05-22",l:"VISITAS"},{d:"2026-05-25",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-06-04",l:"VISITAS"},{d:"2026-06-05",l:"VISITAS"},{d:"2026-06-09",l:"VISITAS"},{d:"2026-06-10",l:"VISITAS"},{d:"2026-06-12",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN ADULTEZ",name:"ALTA DEPENDENCIA — 3 LOTES",col:"#1e8449",events:[{d:"2026-04-22",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-23",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-24",l:"PUBLICACIÓN PROCESO"},{d:"2026-05-28",l:"CIERRE"},{d:"2026-05-29",l:"VISITAS"},{d:"2026-06-01",l:"VISITAS"},{d:"2026-06-02",l:"VISITAS"},{d:"2026-06-03",l:"VISITAS"},{d:"2026-06-05",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-06-09",l:"VISITAS"},{d:"2026-06-10",l:"VISITAS"},{d:"2026-06-26",l:"VISITAS"},{d:"2026-06-30",l:"VISITAS"},{d:"2026-07-01",l:"VISITAS"},{d:"2026-07-02",l:"VISITAS"},{d:"2026-07-10",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"NUTRICIÓN Y ABASTECIMIENTO",name:"COMEDORES COMUNITARIOS",col:"#784212",events:[{d:"2026-03-16",l:"CIERRE"},{d:"2026-03-17",l:"VISITAS"},{d:"2026-03-18",l:"VISITAS"},{d:"2026-03-19",l:"VISITAS"},{d:"2026-03-20",l:"VISITAS"},{d:"2026-03-24",l:"VISITAS"},{d:"2026-03-25",l:"VISITAS"},{d:"2026-03-26",l:"VISITAS"},{d:"2026-03-30",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-04-07",l:"VISITAS"},{d:"2026-04-08",l:"VISITAS"},{d:"2026-04-09",l:"VISITAS"},{d:"2026-04-10",l:"VISITAS"},{d:"2026-04-14",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN DISCAPACIDAD",name:"INTEGRARTE INTERNO CORTO",col:"#7d3c98",events:[{d:"2026-03-18",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-10",l:"CIERRE"},{d:"2026-04-13",l:"VISITAS"},{d:"2026-04-14",l:"VISITAS"},{d:"2026-04-15",l:"VISITAS"},{d:"2026-04-16",l:"VISITAS"},{d:"2026-04-17",l:"VISITAS"},{d:"2026-04-21",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-04-27",l:"VISITAS"},{d:"2026-04-28",l:"VISITAS"},{d:"2026-04-29",l:"VISITAS"},{d:"2026-04-30",l:"VISITAS"},{d:"2026-05-07",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN DISCAPACIDAD",name:"INTEGRARTE EXTERNO CORTO",col:"#a569bd",events:[{d:"2026-04-07",l:"PUBLICACIÓN PROCESO"},{d:"2026-04-23",l:"CIERRE"},{d:"2026-04-24",l:"VISITAS"},{d:"2026-04-27",l:"VISITAS"},{d:"2026-04-28",l:"VISITAS"},{d:"2026-04-29",l:"VISITAS"},{d:"2026-05-06",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-05-12",l:"VISITAS"},{d:"2026-05-13",l:"VISITAS"},{d:"2026-05-14",l:"VISITAS"},{d:"2026-05-21",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN DISCAPACIDAD",name:"INTEGRARTE INTERNO LARGO",col:"#512e8b",events:[{d:"2026-08-18",l:"PUBLICACIÓN PROCESO"},{d:"2026-09-07",l:"CIERRE"},{d:"2026-09-08",l:"VISITAS"},{d:"2026-09-09",l:"VISITAS"},{d:"2026-09-10",l:"VISITAS"},{d:"2026-09-11",l:"VISITAS"},{d:"2026-09-14",l:"VISITAS"},{d:"2026-09-15",l:"VISITAS"},{d:"2026-09-22",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-09-28",l:"VISITAS"},{d:"2026-09-29",l:"VISITAS"},{d:"2026-09-30",l:"VISITAS"},{d:"2026-10-01",l:"VISITAS"},{d:"2026-10-02",l:"VISITAS"},{d:"2026-10-09",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"SUBDIRECCIÓN DISCAPACIDAD",name:"INTEGRARTE EXTERNO LARGO",col:"#2c3e9a",events:[{d:"2026-09-21",l:"PUBLICACIÓN PROCESO"},{d:"2026-10-09",l:"CIERRE"},{d:"2026-10-13",l:"VISITAS"},{d:"2026-10-14",l:"VISITAS"},{d:"2026-10-15",l:"VISITAS"},{d:"2026-10-16",l:"VISITAS"},{d:"2026-10-22",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-10-28",l:"VISITAS"},{d:"2026-10-29",l:"VISITAS"},{d:"2026-10-30",l:"VISITAS"},{d:"2026-11-05",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]},
+  {sub:"TERRITORIAL",name:"ALOJAMIENTO TRANSITORIO",col:"#117a8b",events:[{d:"2026-04-14",l:"CIERRE"},{d:"2026-04-15",l:"VISITAS"},{d:"2026-04-16",l:"VISITAS"},{d:"2026-04-17",l:"VISITAS"},{d:"2026-04-20",l:"VISITAS"},{d:"2026-04-21",l:"PUBLICACIÓN EVALUACIÓN PRELIMINAR"},{d:"2026-04-27",l:"VISITAS"},{d:"2026-04-28",l:"VISITAS"},{d:"2026-04-29",l:"VISITAS"},{d:"2026-05-04",l:"PUBLICACIÓN EVALUACIÓN FINAL"}]}
+];
+
+const SUB_C = {
+  "SUBDIRECCIÓN VEJEZ":"#1a5276",
+  "SUBDIRECCIÓN INFANCIA":"#c0392b",
+  "SUBDIRECCIÓN ADULTEZ":"#1e8449",
+  "NUTRICIÓN Y ABASTECIMIENTO":"#784212",
+  "SUBDIRECCIÓN DISCAPACIDAD":"#512e8b",
+  "TERRITORIAL":"#0d6e6e"
+};
+
+const MN = ['ENE','FEB','MAR','ABR','MAY','JUN','JUL','AGO','SEP','OCT','NOV','DIC'];
+
+function ec(l){
+  const u=l.toUpperCase();
+  if(u.includes('CIERRE')) return '#ef4444';
+  if(u.includes('EVALUACIÓN FINAL')||u.includes('DEFINITIVA')) return '#7c3aed';
+  if(u.includes('EVALUACIÓN')) return '#f59e0b';
+  if(u.includes('PLIEGOS')) return '#10b981';
+  if(u.includes('PUBLICACIÓN PROCESO')) return '#22c55e';
+  if(u.includes('VISITAS')) return '#3b82f6';
+  return '#94a3b8';
+}
+
+const START=new Date('2026-02-17'), END=new Date('2026-11-30'), TODAY=new Date('2026-03-12');
+const DW=28;
+function addD(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function ds(d){return d.toISOString().slice(0,10);}
+
+const days=[], idx={};
+for(let c=new Date(START);c<=END;c=addD(c,1)) days.push(new Date(c));
+days.forEach((d,i)=>idx[ds(d)]=i);
+
+const months=[];
+let cm=null;
+days.forEach((d,i)=>{
+  const m=d.getMonth();
+  if(!cm||cm.m!==m){cm={m,start:i,count:0,name:d.toLocaleString('es-CO',{month:'long'})};months.push(cm);}
+  cm.count++;
+});
+const totalW=days.length*DW;
+
+// Tooltip
+const tip=document.getElementById('tip');
+document.addEventListener('mousemove',e=>{
+  if(tip.style.display==='block'){
+    let x=e.clientX+14,y=e.clientY+14;
+    if(x+tip.offsetWidth>window.innerWidth-10) x=e.clientX-tip.offsetWidth-14;
+    if(y+tip.offsetHeight>window.innerHeight-10) y=e.clientY-tip.offsetHeight-14;
+    tip.style.left=x+'px'; tip.style.top=y+'px';
+  }
+});
+
+function showTip(p){
+  const evs=p.events; if(!evs.length){tip.style.display='none';return;}
+  const first=new Date(evs[0].d),last=new Date(evs[evs.length-1].d);
+  const dur=Math.round((last-first)/86400000);
+  const fmt=d=>d.toLocaleDateString('es-CO',{day:'numeric',month:'short'});
+  const pub=evs.find(e=>e.l.toUpperCase().includes('PUBLICACIÓN PROCESO'));
+  const cierr=evs.find(e=>e.l.toUpperCase().includes('CIERRE'));
+  const ef=evs.find(e=>e.l.toUpperCase().includes('EVALUACIÓN FINAL')||e.l.toUpperCase().includes('DEFINITIVA'));
+  const vis=evs.filter(e=>e.l.toUpperCase().includes('VISITAS')).length;
+  tip.innerHTML=`<div class="tp">${p.name}</div><div class="ts">${p.sub}</div>
+    <div class="tbadge" style="background:${p.col}33;color:${p.col};border:1px solid ${p.col}55">${dur} días de duración</div>
+    <div class="td"></div>
+    ${pub?`<div class="tr"><span class="tk">📢 Publicación</span><span>${fmt(new Date(pub.d))}</span></div>`:''}
+    ${cierr?`<div class="tr"><span class="tk">🔴 Cierre</span><span>${fmt(new Date(cierr.d))}</span></div>`:''}
+    <div class="tr"><span class="tk">🏃 Días visitas</span><span>${vis}</span></div>
+    ${ef?`<div class="tr"><span class="tk">✅ Eval. Final</span><span>${fmt(new Date(ef.d))}</span></div>`:''}
+    <div class="td"></div>
+    <div class="tr"><span class="tk">Inicio</span><span>${fmt(first)}</span></div>
+    <div class="tr"><span class="tk">Fin</span><span>${fmt(last)}</span></div>`;
+  tip.style.display='block';
+}
+
+// Timeline render
+let activeF='all';
+
+function renderTimeline(){
+  const cv=document.getElementById('cv');
+  cv.innerHTML=''; cv.style.width=totalW+'px';
+
+  const mr=document.createElement('div'); mr.className='months-ruler'; mr.style.width=totalW+'px';
+  months.forEach(m=>{
+    const el=document.createElement('div'); el.className='month-label';
+    el.style.width=(m.count*DW)+'px'; el.textContent=m.name.toUpperCase();
+    mr.appendChild(el);
+  });
+  cv.appendChild(mr);
+
+  const tt=document.createElement('div'); tt.className='day-ticks'; tt.style.width=totalW+'px';
+  days.forEach(d=>{
+    const dom=d.getDate(),dow=d.getDay(),isWE=dow===0||dow===6;
+    const t=document.createElement('div');
+    t.className=`tick is-${dom}${isWE?' weekend':''}`;
+    t.style.width=DW+'px';
+    const line=document.createElement('div'); line.className='tick-line';
+    line.style.height=([1,8,15,22,29].includes(dom)?12:isWE?4:7)+'px';
+    const num=document.createElement('span'); num.className='tick-num'; num.textContent=dom;
+    t.appendChild(line); t.appendChild(num); tt.appendChild(t);
+  });
+  cv.appendChild(tt);
+
+  const tracks=document.createElement('div'); tracks.className='tracks'; tracks.style.width=totalW+'px';
+
+  const ti=idx[ds(TODAY)];
+  if(ti!==undefined){
+    const pin=document.createElement('div'); pin.className='today-pin';
+    pin.style.left=(ti*DW+DW/2-1)+'px'; tracks.appendChild(pin);
+  }
+
+  const filtered=activeF==='all'?DATA:DATA.filter(p=>p.sub===activeF);
+  const groups={};
+  filtered.forEach(p=>{if(!groups[p.sub])groups[p.sub]=[];groups[p.sub].push(p);});
+
+  Object.entries(groups).forEach(([sub,procs])=>{
+    const sc=SUB_C[sub]||'#555';
+    const sh=document.createElement('div'); sh.className='sec-header';
+    sh.style.color=sc; sh.style.borderLeftColor=sc;
+    sh.innerHTML=`<span>${sub}</span>`; tracks.appendChild(sh);
+
+    procs.forEach(p=>{
+      if(!p.events.length) return;
+      const fi=idx[p.events[0].d],li=idx[p.events[p.events.length-1].d];
+      if(fi===undefined||li===undefined) return;
+
+      const track=document.createElement('div'); track.className='track'; track.style.width=totalW+'px';
+      const bar=document.createElement('div'); bar.className='pbar';
+      bar.style.left=(fi*DW)+'px';
+      bar.style.width=((li-fi+1)*DW)+'px';
+      bar.style.background=p.col+'bb';
+      bar.style.border=`1.5px solid ${p.col}`;
+      bar.style.boxShadow=`inset 0 1px 0 rgba(255,255,255,.25)`;
+
+      p.events.forEach(ev=>{
+        const ei=idx[ev.d]; if(ei===undefined) return;
+        const seg=document.createElement('div'); seg.className='ev-seg';
+        seg.style.left=((ei-fi)*DW)+'px';
+        seg.style.width=DW+'px';
+        seg.style.background=ec(ev.l);
+        seg.style.opacity='0.4';
+        bar.appendChild(seg);
+      });
+
+      const lbl=document.createElement('div'); lbl.className='pbar-label'; lbl.textContent=p.name;
+      bar.appendChild(lbl);
+      bar.addEventListener('mouseenter',()=>showTip(p));
+      bar.addEventListener('mouseleave',()=>tip.style.display='none');
+      track.appendChild(bar); tracks.appendChild(track);
+    });
+  });
+
+  const axe=document.createElement('div'); axe.className='axis-end'; axe.style.width=totalW+'px';
+  tracks.appendChild(axe);
+  cv.appendChild(tracks);
+}
+
+// Filter buttons
+const fbar=document.getElementById('tl-filters');
+[...new Set(DATA.map(p=>p.sub))].forEach(s=>{
+  const btn=document.createElement('button'); btn.className='filter-btn'; btn.dataset.filter=s;
+  const sc=SUB_C[s]||'#555';
+  btn.style.borderColor=sc+'55';
+  btn.textContent=s.replace(/SUBDIRECCIÓN /,'').replace(/DIRECCIÓN DE /,'');
+  btn.title=s; fbar.appendChild(btn);
+});
+fbar.addEventListener('click',e=>{
+  const btn=e.target.closest('.filter-btn'); if(!btn) return;
+  activeF=btn.dataset.filter||'all';
+  fbar.querySelectorAll('.filter-btn').forEach(b=>{
+    b.classList.remove('active'); b.style.background=''; b.style.color='';
+    b.style.borderColor=SUB_C[b.dataset.filter]+'55'||'#ddd';
+  });
+  btn.classList.add('active');
+  if(activeF!=='all'){const sc=SUB_C[activeF]||'#555';btn.style.background=sc;btn.style.color='#fff';btn.style.borderColor=sc;}
+  renderTimeline();
+});
+
+// View switch
+function switchView(v){
+  const isTL = v==='tl';
+  document.getElementById('btn-tl').classList.toggle('active',isTL);
+  document.getElementById('btn-dash').classList.toggle('active',!isTL);
+  ['tl-filters','tl-legend','tl-outer','tl-hint'].forEach(id=>{
+    document.getElementById(id).style.display = isTL ? '' : 'none';
+  });
+  const dash=document.getElementById('dashboard');
+  if(isTL){
+    dash.style.display='none';
+  } else {
+    dash.style.display='block';
+    renderDashboard();
+  }
+}
+
+// Dashboard render
+function renderDashboard(){
+  const dash=document.getElementById('dashboard');
+
+  const activeProcs=DATA.filter(p=>p.events.length>0);
+  const allEvs=activeProcs.flatMap(p=>p.events);
+  const totalVisits=allEvs.filter(e=>e.l.toUpperCase().includes('VISITAS')).length;
+
+  const durations=activeProcs.map(p=>{
+    if(p.events.length<2) return 0;
+    const f=new Date(p.events[0].d),l=new Date(p.events[p.events.length-1].d);
+    return Math.round((l-f)/86400000);
+  }).filter(d=>d>0);
+  const avgDur=Math.round(durations.reduce((a,b)=>a+b,0)/durations.length);
+  const maxDur=Math.max(...durations);
+  const maxDurProc=activeProcs.find(p=>{
+    if(p.events.length<2) return false;
+    const f=new Date(p.events[0].d),l=new Date(p.events[p.events.length-1].d);
+    return Math.round((l-f)/86400000)===maxDur;
+  });
+
+  // Events per month
+  const evByM={};
+  allEvs.forEach(e=>{
+    const m=new Date(e.d).getMonth();
+    evByM[m]=(evByM[m]||0)+1;
+  });
+
+  // Concurrent processes per month
+  const concByM={};
+  activeProcs.forEach(p=>{
+    const ms=new Set(p.events.map(e=>new Date(e.d).getMonth()));
+    ms.forEach(m=>concByM[m]=(concByM[m]||0)+1);
+  });
+
+  // Event types
+  const typeC={};
+  const typeCol={'Publicación proceso':'#22c55e','Cierre':'#ef4444','Visitas':'#3b82f6','Eval. Preliminar':'#f59e0b','Eval. Final / Definitiva':'#7c3aed','Pub. Pliegos':'#10b981'};
+  allEvs.forEach(e=>{
+    const u=e.l.toUpperCase();
+    let t;
+    if(u.includes('CIERRE')) t='Cierre';
+    else if(u.includes('EVALUACIÓN FINAL')||u.includes('DEFINITIVA')) t='Eval. Final / Definitiva';
+    else if(u.includes('EVALUACIÓN')) t='Eval. Preliminar';
+    else if(u.includes('PLIEGOS')) t='Pub. Pliegos';
+    else if(u.includes('PUBLICACIÓN PROCESO')) t='Publicación proceso';
+    else if(u.includes('VISITAS')) t='Visitas';
+    else t='Otro';
+    typeC[t]=(typeC[t]||0)+1;
+  });
+
+  // Subdirec stats
+  const subS={};
+  activeProcs.forEach(p=>{
+    if(!subS[p.sub]) subS[p.sub]={procs:0,events:0,dur:0};
+    subS[p.sub].procs++;
+    subS[p.sub].events+=p.events.length;
+    if(p.events.length>1){
+      const f=new Date(p.events[0].d),l=new Date(p.events[p.events.length-1].d);
+      subS[p.sub].dur+=Math.round((l-f)/86400000);
+    }
+  });
+
+  const activeMonths=[2,3,4,5,6,7,8,9,10];
+  const maxEv=Math.max(...activeMonths.map(m=>evByM[m]||0));
+  const maxConc=Math.max(...activeMonths.map(m=>concByM[m]||0));
+  const maxType=Math.max(...Object.values(typeC));
+  const maxSubDur=Math.max(...Object.values(subS).map(s=>s.dur));
+
+  const topConc=activeMonths.sort((a,b)=>(concByM[b]||0)-(concByM[a]||0))[0];
+  const topEv=activeMonths.sort((a,b)=>(evByM[b]||0)-(evByM[a]||0))[0];
+  const sortedMonths=[2,3,4,5,6,7,8,9,10];
+
+  dash.innerHTML=`
+    <h2>Resumen del Cronograma 2026</h2>
+
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-val">${activeProcs.length}</div>
+        <div class="kpi-lbl">Procesos activos</div>
+        <div class="kpi-sub">en 6 subdirecciones</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">${allEvs.length}</div>
+        <div class="kpi-lbl">Eventos registrados</div>
+        <div class="kpi-sub">cierres · visitas · evaluaciones</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">${totalVisits}</div>
+        <div class="kpi-lbl">Días de visitas</div>
+        <div class="kpi-sub">en todos los procesos</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-val">${avgDur}<span style="font-size:14px;font-weight:400"> días</span></div>
+        <div class="kpi-lbl">Duración promedio</div>
+        <div class="kpi-sub">máx. ${maxDur} días · ${maxDurProc?maxDurProc.name:''}</div>
+      </div>
+    </div>
+
+    <div class="peak-box">
+      <div class="peak-icon">⚠️</div>
+      <div>
+        <strong>Mes de mayor carga simultánea: ${MN[topConc]}</strong> — ${concByM[topConc]||0} procesos activos al mismo tiempo.<br>
+        <strong>Mes con más eventos: ${MN[topEv]}</strong> — ${evByM[topEv]||0} eventos concentrados en ese mes.<br>
+        El período <strong>Abril – Junio</strong> concentra la mayor actividad contractual del año.
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>Eventos por mes</h3>
+        <div class="month-bars" style="align-items:flex-end">
+          ${sortedMonths.map(m=>{
+            const cnt=evByM[m]||0;
+            const h=Math.max(4,Math.round((cnt/maxEv)*90));
+            const col=cnt>=maxEv*.7?'#ef4444':cnt>=maxEv*.4?'#f59e0b':'#3b82f6';
+            return `<div class="mb-wrap">
+              <div class="mb-cnt">${cnt}</div>
+              <div class="mb-bar" style="height:${h}px;background:${col}"></div>
+              <div class="mb-name">${MN[m]}</div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <h3>Procesos simultáneos por mes</h3>
+        ${sortedMonths.map(m=>{
+          const cnt=concByM[m]||0;
+          const pct=Math.round((cnt/maxConc)*100);
+          const col=cnt>=maxConc*.8?'#ef4444':cnt>=maxConc*.5?'#f59e0b':'#22c55e';
+          return `<div class="bar-row">
+            <div class="bar-key">${MN[m]}</div>
+            <div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${col}"></div></div>
+            <div class="bar-num">${cnt}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div class="two-col">
+      <div class="card">
+        <h3>Distribución por tipo de evento</h3>
+        ${Object.entries(typeC).sort((a,b)=>b[1]-a[1]).map(([t,c])=>{
+          const pct=Math.round((c/maxType)*100);
+          const col=typeCol[t]||'#94a3b8';
+          return `<div class="type-row">
+            <div class="type-dot" style="background:${col}"></div>
+            <div class="type-lbl">${t}</div>
+            <div class="type-bar-bg"><div class="type-bar-fill" style="width:${pct}%;background:${col}"></div></div>
+            <div class="type-num">${c}</div>
+          </div>`;
+        }).join('')}
+      </div>
+      <div class="card">
+        <h3>Por subdirección</h3>
+        <table class="sub-tbl">
+          <thead><tr><th>Subdirección</th><th>Procs.</th><th>Eventos</th><th>Intensidad</th></tr></thead>
+          <tbody>
+            ${Object.entries(subS).map(([sub,st])=>{
+              const col=SUB_C[sub]||'#888';
+              const bw=Math.max(8,Math.round((st.dur/maxSubDur)*100));
+              return `<tr>
+                <td><span class="sdot" style="background:${col}"></span>${sub.replace('SUBDIRECCIÓN ','').replace('DIRECCIÓN DE ','')}</td>
+                <td>${st.procs}</td>
+                <td>${st.events}</td>
+                <td><span class="int-bar" style="width:${bw}px;background:${col}88;border:1px solid ${col}"></span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+// Init
+renderTimeline();
+setTimeout(()=>{
+  const o=document.getElementById('tl-outer');
+  const ti=idx[ds(TODAY)];
+  if(ti!==undefined) o.scrollLeft=Math.max(0,ti*DW-100);
+},100);
+</script>
+</body>
+</html>
