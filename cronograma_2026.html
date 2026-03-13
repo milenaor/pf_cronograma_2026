@@ -208,11 +208,12 @@ const days=[], idx={};
 for(let c=new Date(START);c<=END;c=addD(c,1)) days.push(new Date(c));
 days.forEach((d,i)=>idx[ds(d)]=i);
 
+const MONTH_LONG=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const months=[];
 let cm=null;
 days.forEach((d,i)=>{
-  const m=d.getMonth();
-  if(!cm||cm.m!==m){cm={m,start:i,count:0,name:d.toLocaleString('es-CO',{month:'long'})};months.push(cm);}
+  const m=d.getUTCMonth(); // UTC para evitar desfase UTC-5 Colombia
+  if(!cm||cm.m!==m){cm={m,start:i,count:0,name:MONTH_LONG[m]};months.push(cm);}
   cm.count++;
 });
 let totalW=days.length*DW;
@@ -313,7 +314,7 @@ function renderTimeline(){
 
   const tt=document.createElement('div'); tt.className='day-ticks'; tt.style.width=totalW+'px';
   days.forEach(d=>{
-    const dom=d.getDate(),dow=d.getDay(),isWE=dow===0||dow===6;
+    const dom=d.getUTCDate(),dow=d.getUTCDay(),isWE=dow===0||dow===6;
     const t=document.createElement('div');
     t.className=`tick is-${dom}${isWE?' weekend':''}`;
     t.style.width=DW+'px';
@@ -661,7 +662,7 @@ function updateRowHeight(){
   const hnt=document.getElementById('tl-hint').offsetHeight;
 
   // --- Vertical: compute row height ---
-  const availH=window.innerHeight - hdr - flt - leg - hnt - 24;
+  const availH=window.innerHeight - hdr - flt - leg - hnt - 6;
   // canvas overhead: padding-top(16) + ruler(26) + ticks(24) + axis(9)
   const canvasFixed=75;
   const filtered=activeF==='all'?DATA:DATA.filter(p=>p.sub===activeF);
@@ -672,7 +673,7 @@ function updateRowHeight(){
   const secHTotal=nGroups*29;
   const tracksAvail=availH - canvasFixed - secHTotal;
   const rowH=Math.max(20, Math.floor(tracksAvail/nRows));
-  const barH=Math.max(14, rowH-4);
+  const barH=Math.max(14, rowH-2);
 
   // --- Horizontal: compute day width ---
   const outerW=window.innerWidth - 72; // 36px padding × 2
