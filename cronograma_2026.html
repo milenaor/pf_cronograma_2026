@@ -237,17 +237,22 @@ function showTip(p){
   const pub=evs.find(e=>e.l.toUpperCase().includes('PUBLICACIÓN PROCESO'));
   const cierr=evs.find(e=>e.l.toUpperCase().includes('CIERRE'));
   const ef=evs.find(e=>e.l.toUpperCase().includes('EVALUACIÓN FINAL')||e.l.toUpperCase().includes('DEFINITIVA'));
-  const vis=evs.filter(e=>e.l.toUpperCase().includes('VISITAS')).length;
+  const visEvs=evs.filter(e=>e.l.toUpperCase().includes('VISITAS'));
+  const vis=visEvs.length;
+  const visIni=vis>0?new Date(visEvs[0].d+'T12:00:00'):null;
+  const visFin=vis>0?new Date(visEvs[visEvs.length-1].d+'T12:00:00'):null;
   tip.innerHTML=`<div class="tp">${p.name}</div><div class="ts">${p.sub}</div>
     <div class="tbadge" style="background:${p.col}33;color:${p.col};border:1px solid ${p.col}55">${dur} días de duración</div>
     <div class="td"></div>
-    ${pub?`<div class="tr"><span class="tk">📢 Publicación</span><span>${fmt(new Date(pub.d))}</span></div>`:''}
-    ${cierr?`<div class="tr"><span class="tk">🔴 Cierre</span><span>${fmt(new Date(cierr.d))}</span></div>`:''}
-    <div class="tr"><span class="tk">🏃 Días visitas</span><span>${vis}</span></div>
-    ${ef?`<div class="tr"><span class="tk">✅ Eval. Final</span><span>${fmt(new Date(ef.d))}</span></div>`:''}
+    ${pub?`<div class="tr"><span class="tk">📢 Publicación</span><span>${fmt(new Date(pub.d+'T12:00:00'))}</span></div>`:''}
+    ${cierr?`<div class="tr"><span class="tk">🔴 Cierre</span><span>${fmt(new Date(cierr.d+'T12:00:00'))}</span></div>`:''}
+    <div class="tr"><span class="tk">🔶 Días visitas</span><span>${vis}</span></div>
+    ${visIni?`<div class="tr"><span class="tk">&nbsp;&nbsp;&nbsp;Inicio visitas</span><span>${fmt(visIni)}</span></div>`:''}
+    ${visFin?`<div class="tr"><span class="tk">&nbsp;&nbsp;&nbsp;Fin visitas</span><span>${fmt(visFin)}</span></div>`:''}
+    ${ef?`<div class="tr"><span class="tk">✅ Eval. Final</span><span>${fmt(new Date(ef.d+'T12:00:00'))}</span></div>`:''}
     <div class="td"></div>
-    <div class="tr"><span class="tk">Inicio</span><span>${fmt(first)}</span></div>
-    <div class="tr"><span class="tk">Fin</span><span>${fmt(last)}</span></div>`;
+    <div class="tr"><span class="tk">Inicio</span><span>${fmt(new Date(evs[0].d+'T12:00:00'))}</span></div>
+    <div class="tr"><span class="tk">Fin</span><span>${fmt(new Date(evs[evs.length-1].d+'T12:00:00'))}</span></div>`;
   tip.style.display='block';
 }
 
