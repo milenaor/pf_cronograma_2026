@@ -675,10 +675,10 @@ function updateRowHeight(){
   const rowH=Math.max(20, Math.floor(tracksAvail/nRows));
   const barH=Math.max(14, rowH-2);
 
-  // --- Horizontal: compute day width ---
+  // --- Horizontal: división exacta para que el canvas llene el 100% del ancho ---
   const outerW=window.innerWidth - 72; // 36px padding × 2
-  DW=Math.max(3, Math.floor(outerW/days.length));
-  totalW=days.length*DW;
+  DW=Math.max(3, outerW/days.length);
+  totalW=outerW; // canvas = ancho exacto del contenedor, sin espacio sobrante
 
   document.documentElement.style.setProperty('--row-h', rowH+'px');
   document.documentElement.style.setProperty('--bar-h', barH+'px');
