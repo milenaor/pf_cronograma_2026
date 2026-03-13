@@ -684,16 +684,33 @@ function updateRowHeight(){
   document.documentElement.style.setProperty('--day-w', DW+'px');
 }
 
+// After render: mide el desbordamiento real y reduce filas hasta que todo quepa
+function fixOverflow(){
+  const outer=document.getElementById('tl-outer');
+  const cv=document.getElementById('cv');
+  if(!cv||!outer) return;
+  const excess=cv.offsetHeight - outer.clientHeight;
+  if(excess<=0) return;
+  const filtered=activeF==='all'?DATA:DATA.filter(p=>p.sub===activeF);
+  const nRows=filtered.filter(p=>p.events.length>0).length;
+  if(!nRows) return;
+  const curRowH=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--row-h'))||20;
+  const newRowH=Math.max(14, curRowH - Math.ceil(excess/nRows) - 2);
+  document.documentElement.style.setProperty('--row-h', newRowH+'px');
+  document.documentElement.style.setProperty('--bar-h', Math.max(8, newRowH-8)+'px');
+}
+
 // Init
 updateRowHeight();
 renderTimeline();
+requestAnimationFrame(fixOverflow);
 setTimeout(()=>{
   const o=document.getElementById('tl-outer');
   const ti=idx[ds(TODAY)];
   if(ti!==undefined) o.scrollLeft=Math.max(0,ti*DW-100);
 },100);
 
-window.addEventListener('resize',()=>{ updateRowHeight(); renderTimeline(); });
+window.addEventListener('resize',()=>{ updateRowHeight(); renderTimeline(); requestAnimationFrame(fixOverflow); });
 
 // Cursor pin listeners
 const outerEl=document.getElementById('tl-outer');
