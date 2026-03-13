@@ -661,7 +661,7 @@ function updateRowHeight(){
   const hnt=document.getElementById('tl-hint').offsetHeight;
 
   // --- Vertical: compute row height ---
-  const availH=window.innerHeight - hdr - flt - leg - hnt - 8;
+  const availH=window.innerHeight - hdr - flt - leg - hnt - 24;
   // canvas overhead: padding-top(16) + ruler(26) + ticks(24) + axis(9)
   const canvasFixed=75;
   const filtered=activeF==='all'?DATA:DATA.filter(p=>p.sub===activeF);
